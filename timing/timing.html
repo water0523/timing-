@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>沉浸式专注计时器</title>
+    <title>timing计时器</title>
     <style>
         /* --- 全局样式 & 重置 --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -362,19 +362,30 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.1); 
         }
 
-        .task-name-display {
-            /* 默认顺序：2 */
-            order: 2;
-            
-            font-size: 20px;
-            font-weight: 500;
-            /* 小字稍微淡一点点 */
-            opacity: 0.9; 
-            margin-top: 5px;
-            letter-spacing: 1px;
-            color: rgba(255,255,255,0.9);
-            transition: font-size 0.1s;
-        }
+/* 任务名（在容器内部） */
+.task-name-display {
+    order: 2;
+    font-size: 20px;
+    font-weight: 500;
+    margin-top: 5px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.9);
+    
+    transition: opacity 1.5s ease-in-out, font-size 0.1s; 
+    opacity: 1;
+
+    /* === 新增：单行省略号核心代码 === */
+    white-space: nowrap;       /* 强制不换行 */
+    overflow: hidden;          /* 超出部分隐藏 */
+    text-overflow: ellipsis;   /* 超出部分显示 ... */
+    max-width: 80%;            /* 限制最大宽度为圆圈的 80%，防止贴边 */
+    text-align: center;        /* 短文本居中 */
+    display: block;            /* 确保宽度生效 */
+}
+/* 新增：任务名的隐藏状态 */
+.task-name-display.hidden {
+    opacity: 0;
+}
 
         /* === 初始模式（图1）：任务是大字，时间是小字 === */
         
@@ -416,13 +427,18 @@
             z-index: 5;
             min-height: 50px;
         }
-        .fade-text {
-            font-size: 16px;
-            line-height: 1.6;
-            color: rgba(255,255,255,0.9);
-            transition: opacity 1s;
-        }
-        .fade-text.hidden { opacity: 0; }
+        /* 底部名言容器 */
+/* 找到 .fade-text，替换为以下代码 */
+.fade-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+    
+    /* 关键：与任务名完全一致的过渡参数 */
+    transition: opacity 1.5s ease-in-out;
+    opacity: 1;
+}
+.fade-text.hidden { opacity: 0; }
 
         /* --- 底部按钮控制区 --- */
         .controls {
@@ -511,6 +527,202 @@
             background-color: #f5f5f5;
             color: #2196F3;
         }
+
+/* --- 开发者模式控件样式 (修改版：顶部悬浮) --- */
+.dev-controls {
+    position: absolute;
+    /* 改为顶部定位 */
+    top: 60px;  /* 留出 60px 距离，避开手机刘海或状态栏 */
+    left: 50%;  /* 水平居中起始点 */
+    transform: translateX(-50%); /* 修正水平居中 */
+    
+    width: 90%;
+    z-index: 100; /* 最高的层级，保证能点到 */
+    
+    text-align: center;
+    background: rgba(0, 0, 0, 0.6); /*稍微加深一点背景，保证在亮色天空背景下也能看清*/
+    padding: 12px;
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3); /* 加一点阴影更有悬浮感 */
+    
+    /* 默认隐藏 */
+    display: none; 
+}
+
+/* 里面的其他样式 (.dev-header, .dev-label 等) 不需要动，保持原样即可 */
+
+/* --- 新增样式，放在 .dev-controls 后面 --- */
+
+.dev-header {
+    display: flex;
+    justify-content: space-between; /* 两端对齐 */
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+/* 覆盖之前的 .dev-label 样式，去掉 margin-bottom 因为父级控制了 */
+.dev-label {
+    color: #00ff00;
+    font-size: 12px;
+    font-family: monospace;
+    text-align: left;
+    margin: 0;
+}
+
+/* 关闭按钮样式 */
+.dev-close {
+    color: #ff4444; /* 警示红 */
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0 5px;
+    user-select: none;
+}
+.dev-close:hover {
+    color: #ff0000;
+    transform: scale(1.2);
+}
+
+.dev-label {
+    color: #00ff00; /* 骇客绿，体现开发者模式 */
+    font-size: 12px;
+    margin-bottom: 5px;
+    font-family: monospace;
+    text-align: left;
+}
+
+#dev-slider {
+    width: 100%;
+    cursor: pointer;
+    accent-color: #00ff00; /* 滑块颜色 */
+}
+
+/* --- 通用居中弹窗样式 --- */
+.center-modal {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: white;
+    width: 85%;
+    max-width: 400px;
+    border-radius: 16px;
+    padding: 24px;
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+.center-modal.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+.wide-modal { max-width: 600px; }
+
+.modal-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #333; }
+.modal-info { font-size: 16px; color: #666; margin-bottom: 20px; }
+
+.modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.close-icon { font-size: 24px; cursor: pointer; color: #999; padding: 5px; }
+
+/* 文本域 */
+.clean-textarea {
+    width: 100%;
+    height: 100px;
+    padding: 10px;
+    border: 1px solid #eee;
+    background: #f9f9f9;
+    border-radius: 8px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+}
+.clean-textarea:focus { border-color: #2196F3; background: #fff; }
+
+/* 按钮组 */
+.modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+.btn-cancel-flat { background: #f5f5f5; color: #666; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+.btn-confirm-flat { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+.full-width { width: 100%; }
+
+/* 历史列表 */
+.history-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    border-top: 1px solid #eee;
+}
+.history-row {
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+.history-row-top { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: bold; color: #333; }
+.history-row-mid { display: flex; justify-content: space-between; color: #888; font-size: 12px; }
+.history-note { margin-top: 6px; background: #f0f8ff; padding: 6px; border-radius: 4px; color: #555; font-size: 13px; }
+.empty-tip { text-align: center; padding: 30px; color: #999; }
+
+/* --- 优化：删除按钮样式 --- */
+
+/* 1. 专注历史列表的删除按钮 */
+.history-row {
+    position: relative; /* 为了定位删除按钮 */
+    padding-right: 30px; /* 留出右边空间给删除按钮 */
+}
+.btn-delete-record {
+    position: absolute;
+    top: 12px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+.btn-delete-record:hover {
+    background: #ffebee; /* 浅红背景 */
+    color: #f44336;      /* 红色文字 */
+}
+
+/* 2. 输入框下拉菜单的布局优化 */
+.history-item {
+    display: flex; /* 改为弹性布局 */
+    justify-content: space-between; /* 两端对齐 */
+    align-items: center;
+    padding: 0; /* 清除原有 padding，改在内部元素上 */
+}
+
+/* 左侧文字区域：占满剩余空间，可点击 */
+.history-item-text {
+    flex: 1; 
+    padding: 12px 20px;
+    cursor: pointer;
+}
+.history-item-text:hover {
+    color: #2196F3; /* 保持原有的悬停变色 */
+}
+
+/* 右侧删除按钮 */
+.history-item-del {
+    padding: 12px 15px;
+    color: #ddd;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+.history-item-del:hover {
+    color: #f44336; /* 悬停变红 */
+    background: #fafafa;
+}
     </style>
 </head>
 <body>
@@ -551,6 +763,11 @@
             </div>
         </div>
 
+        <div style="text-align: center; margin-bottom: 20px; margin-top: 10px;">
+    <span onclick="openHistoryModal()" style="color: #2196F3; cursor: pointer; font-size: 14px; text-decoration: underline;">
+        查看历史记录
+    </span>
+        </div>
         <!-- 底部开始按钮 -->
         <div class="start-btn-container">
             <button class="start-btn" onclick="startFocus()">开始学习</button>
@@ -604,7 +821,17 @@
         <div class="text-area">
             <div id="alternating-text" class="fade-text"></div>
         </div>
-
+        <!-- 开发者模式时间轴 (默认隐藏) -->
+<!-- 找到之前的 dev-timeline-container，替换为以下代码 -->
+<div id="dev-timeline-container" class="dev-controls" style="display: none;">
+    <!-- 顶部栏：左边是文字，右边是关闭按钮 -->
+    <div class="dev-header">
+        <div class="dev-label">water不是水 (欣赏模式)</div>
+        <div class="dev-close" onclick="exitDevMode()">×</div>
+    </div>
+    
+    <input type="range" id="dev-slider" min="0" max="28800" step="1" value="0">
+</div>
         <div class="controls">
             <!-- 结束按钮：加了 btn-end 类 -->
             <button class="control-btn btn-end" onclick="confirmEnd()">结束</button>
@@ -614,41 +841,73 @@
         </div>
     </div>
 
+    <!-- ================= 弹窗: 结束总结 (写备注) ================= -->
+<div class="modal-overlay" id="summary-overlay"></div>
+<div class="center-modal" id="summary-modal">
+    <div class="modal-title">本次专注已结束</div>
+    <div class="modal-info">时长：<span id="summary-duration">00:00:00</span></div>
+    
+    <div class="input-group" style="margin-bottom: 15px;">
+        <textarea id="summary-note" class="clean-textarea" placeholder="记录一下刚才的收获或想法..."></textarea>
+    </div>
+
+    <div class="modal-btns">
+        <button class="btn-cancel-flat" onclick="closeSummary(false)">不保存</button>
+        <button class="btn-confirm-flat" onclick="saveAndExit()">保存记录</button>
+    </div>
+</div>
+
+<!-- ================= 弹窗: 历史记录列表 ================= -->
+<div class="modal-overlay" id="history-overlay" onclick="closeHistoryModal()"></div>
+<div class="center-modal wide-modal" id="history-modal">
+    <div class="modal-header-row">
+        <div class="modal-title">专注历史</div>
+        <div class="close-icon" onclick="closeHistoryModal()">×</div>
+    </div>
+
+    <div class="history-list-container" id="history-list-content">
+        <!-- JS 动态填充 -->
+    </div>
+
+    <div class="modal-btns">
+        <button class="btn-confirm-flat full-width" onclick="exportToExcel()">导出为 Excel</button>
+    </div>
+</div>
     <script>
         // ================= 配置数据 =================
 // ================= 配置数据 (本地图片版) =================
-        const resources = [
-            // --- 第 1 组 ---
-            { img: './images/1.png', title: '保持专注', quote: '每一分钟的努力都算数。' },
-            { img: './images/2.jpg', title: '心流状态', quote: '沉浸其中，享受过程。' },
-            { img: './images/3.jpg', title: '坚持到底', quote: '终点就在前方。' },
-            { img: './images/4.jpg', title: '标题4', quote: '这里填入第4张图的文案...' },
-            { img: './images/5.jpg', title: '标题5', quote: '这里填入第5张图的文案...' },
-            { img: './images/6.jpg', title: '标题6', quote: '这里填入第6张图的文案...' },
+const resources = [
+            // --- 第 1 组：宇宙与地球起源 ---
+            { img: './images/1.png', title: '大爆炸', quote: '宇宙由这一刻诞生，你的征程也由此开始。' },
+            { img: './images/2.png', title: '太阳系', quote: '太阳系正在慢慢形成，万事开头难。' },
+            { img: './images/3.png', title: '地球形成', quote: '孕育生命的摇篮，似乎有灵感涌上心头？' },
+            { img: './images/4.png', title: '太古代', quote: '第一个生命诞生了，是否得到了某种启发呢？' },
+            { img: './images/5.png', title: '震旦纪', quote: '进化是最伟大的馈赠，在不知不觉中，你正在感受进步。' },
+            { img: './images/6.png', title: '寒武纪', quote: '鱼类最活跃的时期，鱼儿水中游，时光一去不回头。' },
             
-            // --- 第 2 组 ---
-            { img: './images/7.jpg', title: '标题7', quote: '这里填入第7张图的文案...' },
-            { img: './images/8.jpg', title: '标题8', quote: '这里填入第8张图的文案...' },
-            { img: './images/9.jpg', title: '标题9', quote: '这里填入第9张图的文案...' },
-            { img: './images/10.jpg', title: '标题10', quote: '这里填入第10张图的文案...' },
-            { img: './images/11.jpg', title: '标题11', quote: '这里填入第11张图的文案...' },
-            { img: './images/12.jpg', title: '标题12', quote: '这里填入第12张图的文案...' },
+            // --- 第 2 组：古生物演化 ---
+            { img: './images/7.png', title: '奥陶纪', quote: '大陆板块形成，更大的挑战即将来临。' },
+            { img: './images/8.png', title: '泥盆纪', quote: '陆地的感觉好吗？请抓紧每一分钟。' },
+            { img: './images/9.png', title: '石炭纪', quote: '火山开始喷发，大型爬行动物诞生了，是否有所收获了？' },
+            { img: './images/10.png', title: '三叠纪', quote: '山峰丛林开始形成，注意静心。' },
+            { img: './images/11.png', title: '侏罗纪', quote: '恐龙横行的年代，保持专注，克服难关。' },
+            { img: './images/12.jpg', title: '白垩纪', quote: '恐龙灭绝，现在可以告一段落了。' },
 
-            // --- 第 3 组 ---
-            { img: './images/13.jpg', title: '标题13', quote: '这里填入第13张图的文案...' },
-            { img: './images/14.jpg', title: '标题14', quote: '这里填入第14张图的文案...' },
-            { img: './images/15.jpg', title: '标题15', quote: '这里填入第15张图的文案...' },
-            { img: './images/16.jpg', title: '标题16', quote: '这里填入第16张图的文案...' },
-            { img: './images/17.jpg', title: '标题17', quote: '这里填入第17张图的文案...' },
-            { img: './images/18.jpg', title: '标题18', quote: '这里填入第18张图的文案...' },
+            // --- 第 3 组：人类文明发展 ---
+            { img: './images/13.png', title: '古代', quote: '人类的祖先在这篇大陆上开疆辟土，学习有时候需要互相帮助。' },
+            { img: './images/14.png', title: '部落', quote: '听说印第安人始终保持着这样的生活方式，今天的学习到这里也可以结束了。' },
+            { img: './images/15.jpg', title: '村庄', quote: '人类不再到处游荡，有了自己固定的“家”，记得回忆和巩固自己今天的学习。' },
+            { img: './images/16.png', title: '人群', quote: '人多力量大？前提是要有着共同的目标。' },
+            { img: './images/17.png', title: '近代', quote: '王国，朝代逐渐形成，注意归纳你所学的知识。' },
+            { img: './images/18.png', title: '现代', quote: '我们所生活的年代，注意劳逸结合。' },
 
-            // --- 第 4 组 ---
-            { img: './images/19.jpg', title: '标题19', quote: '这里填入第19张图的文案...' },
-            { img: './images/20.jpg', title: '标题20', quote: '这里填入第20张图的文案...' },
-            { img: './images/21.jpg', title: '标题21', quote: '这里填入第21张图的文案...' },
-            { img: './images/22.jpg', title: '标题22', quote: '这里填入第22张图的文案...' },
-            { img: './images/23.jpg', title: '标题23', quote: '这里填入第23张图的文案...' },
-            { img: './images/24.jpg', title: '标题24', quote: '这里填入第24张图的文案...' }
+            // --- 第 4 组：未来与终结 ---
+            { img: './images/19.png', title: '城市', quote: '繁荣时期，去做做别的事情吧。' },
+            { img: './images/20.png', title: '未来城市', quote: '人类科技的巅峰，每天的知识获取量是有限的。' },
+            { img: './images/21.png', title: '核爆炸', quote: '物极必反，人类如此，学习也是如此。' },
+            { img: './images/22.png', title: '地球毁灭', quote: '世界的尽头，它必将发生。过度的学习，会影响短期记忆。' },
+            { img: './images/23.png', title: '太阳毁灭', quote: '生命迹象消失，进入效率低下期。' },
+            { img: './images/24.png', title: '宇宙毁灭', quote: '生命迹象消失，进入效率低下期。' }
         ];
 
         // ================= 全局变量 =================
@@ -656,9 +915,15 @@
         let totalDurationMinutes = 60; // 默认 60 分钟
         
         let isRunning = false;
+        let sessionStartTimeObj = null; // 记录具体的开始日期时间对象
         let textInterval = null;       // 文字轮播定时器
         let currentResIndex = 0;       // 当前背景/文案索引
-
+// 全局动画定时器 ID 存储池
+let animTimeout1 = null;
+let animTimeout2 = null;
+let animTimeout3 = null;
+let breatheStartTimeout = null; // 用于10秒后启动呼吸的延时
+let dragDebounceTimer = null;   // 用于判断滑块何时停止
         // --- 新增：高精度计时与动画变量 ---
         let startTime = 0;             // 本次开始的时间戳
         let elapsedMs = 0;             // 暂停前积累的毫秒数
@@ -878,60 +1143,62 @@ function startFocus() {
             // 立即开始
             startTimerLogic();
         }
-
+// 在 startFocus 函数内部，startTimerLogic() 之前添加：
+sessionStartTimeObj = new Date(); // 记录当前真实时间
         // 2. 核心计时逻辑 (改为 requestAnimationFrame)
-        function startTimerLogic() {
-            if (isRunning) return;
-            isRunning = true;
-            pauseBtn.innerText = "暂停";
+function startTimerLogic() {
+    if (isRunning) return;
+    isRunning = true;
+    pauseBtn.innerText = "暂停";
 
-            // 记录当前时刻
-            startTime = performance.now();
+    startTime = performance.now();
 
-            // 定义每一帧的循环函数
-            const loop = () => {
-                // 计算当前这一段跑了多久 + 之前积累的时间
-                const now = performance.now();
-                const currentSessionMs = now - startTime; 
-                const totalCurrentMs = elapsedMs + currentSessionMs;
+    const loop = () => {
+        const now = performance.now();
+        const currentSessionMs = now - startTime; 
+        const totalCurrentMs = elapsedMs + currentSessionMs;
 
-                // 转换为秒（用于显示和判断）
-                const totalSeconds = totalCurrentMs / 1000;
+        const totalSeconds = totalCurrentMs / 1000;
 
-                // 更新界面 (传入毫秒实现丝滑)
-                updateTimerUI(totalCurrentMs);
-
-                // 检查切图逻辑 (每20分钟 = 1200秒)
-                const currentCycle = Math.floor(totalSeconds / 1200);
-                if (currentCycle > lastCycleIndex) {
-                    lastCycleIndex = currentCycle;
-                    // 切图
-                    if(typeof currentResIndex !== 'undefined') {
-                        currentResIndex++;
-                        updateResource(currentResIndex);
-                    }
-                }
-
-                // 检查结束
-                if (totalSeconds >= totalDurationMinutes * 60) {
-                    elapsedMs = totalDurationMinutes * 60 * 1000; // 修正为刚好满
-                    updateTimerUI(elapsedMs); // 最后刷新一次确保满圈
-                    finishTimer();
-                    return; // 停止循环
-                }
-
-                // 继续下一帧
-                if (isRunning) {
-                    animationFrameId = requestAnimationFrame(loop);
-                }
-            };
-
-            // 启动循环
-            animationFrameId = requestAnimationFrame(loop);
-            
-            // 启动文字动画
-            if(typeof startTextAnim === 'function') startTextAnim();
+        // 更新界面
+        updateTimerUI(totalCurrentMs);
+        
+        // 【新增】开发者模式：滑块跟随自动更新
+        if (isDevMode && devSlider) {
+            devSlider.value = Math.floor(totalSeconds);
         }
+
+        // 检查切图逻辑 (每20分钟 = 1200秒)
+        const currentCycle = Math.floor(totalSeconds / 1200);
+        if (currentCycle > lastCycleIndex) {
+            lastCycleIndex = currentCycle;
+            if(typeof currentResIndex !== 'undefined') {
+                currentResIndex++;
+                updateResource(currentResIndex);
+            }
+        }
+
+        // 检查结束
+        if (totalSeconds >= totalDurationMinutes * 60) {
+            elapsedMs = totalDurationMinutes * 60 * 1000; 
+            updateTimerUI(elapsedMs); 
+            
+            // 【新增这一行】自然结束时，先关掉运行状态。
+            // 这样进入 showSummaryModal() 时，就不会重复累加时间了。
+            isRunning = false; 
+
+            finishTimer();
+            return; 
+        }
+
+        if (isRunning) {
+            animationFrameId = requestAnimationFrame(loop);
+        }
+    };
+
+    animationFrameId = requestAnimationFrame(loop);
+    if(typeof startTextAnim === 'function') startTextAnim();
+}
 
         // 3. 界面更新逻辑 (接收毫秒参数)
         function updateTimerUI(currentMs) {
@@ -995,22 +1262,26 @@ function startFocus() {
             }
         }
 
-        // 5. 停止/放弃
-        function stopTimer() {
-            isRunning = false;
-            cancelAnimationFrame(animationFrameId);
-            clearInterval(textInterval);
-            timerScreen.classList.remove('active');
-            setupScreen.classList.add('active');
-        }
+function stopTimer() {
+    // 1. 停止运行标志
+    isRunning = false;
+    
+    // 2. 清除各种定时器
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    if (textInterval) clearInterval(textInterval);
+    
+    // 3. 【关键】切换页面 UI：隐藏计时页，显示设置页
+    timerScreen.classList.remove('active'); 
+    setupScreen.classList.add('active');    
+    
+    // 4. 重置按钮文字
+    if (pauseBtn) pauseBtn.innerText = "暂停";
 
-        function stopTimer() {
-            clearInterval(timerInterval);
-            clearInterval(textInterval);
-            isRunning = false;
-            timerScreen.classList.remove('active');
-            setupScreen.classList.add('active');
-        }
+    // 5. 如果开启了开发者模式，顺便关闭它
+    if (typeof isDevMode !== 'undefined' && isDevMode) {
+        exitDevMode();
+    }
+}
 
         function finishTimer() {
             stopTimer();
@@ -1040,78 +1311,55 @@ function startFocus() {
             // 如果是 isFirstLoad (刚开始)，文字由 startFocus 和 startTextAnim 控制，这里不操作
         }
 
+// 替换原有的 startTextAnim
 function startTextAnim() {
-            if (textInterval) clearInterval(textInterval);
+    resetAllTextAnims(); // 先清空旧的
 
-            const data = resources[currentResIndex % resources.length];
-            const timerContent = document.querySelector('.timer-content');
+    const data = resources[currentResIndex % resources.length];
+    const timerContent = document.querySelector('.timer-content');
 
-            // === 终极防抖翻转序列 ===
+    // === 阶段1: 翻转动画 (0s - 2s) ===
+    animTimeout1 = setTimeout(() => {
+        timerContent.style.transition = 'transform 0.5s linear';
+        timerContent.classList.add('rotate-out');
+        alternatingText.classList.add('hidden');
+        
+        animTimeout2 = setTimeout(() => {
+            timerContent.style.opacity = '0';
+            timerContent.classList.remove('initial-mode');
             
-            // 1. 初始停留
-            setTimeout(() => {
-                
-                // 2. 前半段：匀速转到 90度
-                // 注意：这里不需要 translate 了，只操作 rotateY
+            timerTaskName.innerText = data.title;
+            alternatingText.innerText = data.quote;
+            
+            timerContent.style.transition = 'none';
+            timerContent.style.transform = 'perspective(600px) rotateY(-90deg)';
+            timerContent.classList.remove('rotate-out');
+            void timerContent.offsetWidth; 
+
+            requestAnimationFrame(() => {
+                timerContent.style.opacity = '1';
                 timerContent.style.transition = 'transform 0.5s linear';
-                timerContent.classList.add('rotate-out');
+                timerContent.style.transform = 'perspective(600px) rotateY(0deg)';
+                alternatingText.classList.remove('hidden');
                 
-                // 3. 到达中间点
+                // 恢复过渡样式
                 setTimeout(() => {
-                    
-                    // A. 隐藏，防止闪烁
-                    timerContent.style.opacity = '0';
-                    
-                    // B. 改变布局和内容
-                    timerContent.classList.remove('initial-mode');
-                    timerTaskName.innerText = data.title;
-                    alternatingText.innerText = data.quote;
-                    
-                    // C. 瞬间重置位置到 -90度
-                    timerContent.style.transition = 'none';
-                    // 【重点】这里去掉了 translate(-50%, -50%)
-                    timerContent.style.transform = 'perspective(600px) rotateY(-90deg)';
-                    timerContent.classList.remove('rotate-out');
+                    timerTaskName.style.transition = 'opacity 1.5s ease-in-out, font-size 0.1s';
+                    alternatingText.style.transition = 'opacity 1.5s ease-in-out';
+                }, 500);
+            });
+            
+        }, 500); 
+    }, 1500);
 
-                    // D. 强制重绘
-                    void timerContent.offsetWidth; 
-
-                    // E. 请求下一帧执行回转
-                    requestAnimationFrame(() => {
-                        timerContent.style.opacity = '1';
-                        timerContent.style.transition = 'transform 0.5s linear';
-                        
-                        // 【重点】这里也去掉了 translate(-50%, -50%)
-                        timerContent.style.transform = 'perspective(600px) rotateY(0deg)';
-                        
-                        alternatingText.classList.remove('hidden');
-                    });
-                    
-                }, 500); 
-                
-            }, 1500);
-
-
-            // === 后续呼吸循环 (不变) ===
-            const runBreathingLoop = () => {
-                timerTaskName.classList.add('hidden');
-                alternatingText.classList.add('hidden');
-                setTimeout(() => {
-                    if(isRunning) {
-                        timerTaskName.classList.remove('hidden');
-                        alternatingText.classList.remove('hidden');
-                    }
-                }, 10000);
-            };
-
-            setTimeout(() => {
-                if(isRunning) {
-                    runBreathingLoop();
-                    textInterval = setInterval(runBreathingLoop, 20000);
-                }
-            }, 10000);
+    // === 阶段2: 10秒后启动呼吸 ===
+    // 这里不再用写死的 setTimeout，而是存起来
+    breatheStartTimeout = setTimeout(() => {
+        if(isRunning) {
+            startBreathingOnly();
         }
-
+    }, 10000);
+}
         // ================= 初始化 =================
         initPicker();
 
@@ -1125,32 +1373,59 @@ function startTextAnim() {
             return JSON.parse(localStorage.getItem('taskHistory')) || {};
         }
 
-        // 渲染下拉菜单
-        function showHistoryDropdown() {
-            const history = getHistory();
-            const list = [];
+        // 修改：渲染下拉菜单
+function showHistoryDropdown() {
+    const history = getHistory(); // 获取 {"背单词": 5, "看书": 2}
+    const list = [];
 
-            // 筛选：只有次数 >= 2 的才显示
-            for (let [name, count] of Object.entries(history)) {
-                if (count >= 2) {
-                    list.push(name);
-                }
-            }
-
-            // 如果没有符合条件的历史记录，不显示
-            if (list.length === 0) {
-                historyDropdown.style.display = 'none';
-                return;
-            }
-
-            // 生成 HTML
-            let html = '';
-            list.forEach(name => {
-                html += `<div class="history-item" onmousedown="selectHistory('${name}')">${name}</div>`;
-            });
-            historyDropdown.innerHTML = html;
-            historyDropdown.style.display = 'block';
+    // 筛选：逻辑保持不变 (此处代码是 >=2，如果你想改成 >3，请把下面的 2 改成 4)
+    for (let [name, count] of Object.entries(history)) {
+        if (count >= 2) { 
+            list.push(name);
         }
+    }
+
+    if (list.length === 0) {
+        historyDropdown.style.display = 'none';
+        return;
+    }
+
+    // 生成 HTML：左右分栏结构
+    let html = '';
+    list.forEach(name => {
+        // 注意：onmousedown 比 onclick 更早触发，防止 blur 事件先执行导致无法点击
+        html += `
+            <div class="history-item">
+                <!-- 左边：点击填入文字 -->
+                <div class="history-item-text" onmousedown="selectHistory('${name}')">${name}</div>
+                <!-- 右边：点击删除 (传入 event 用于阻止冒泡) -->
+                <div class="history-item-del" onmousedown="deleteTaskSuggestion('${name}', event)">×</div>
+            </div>
+        `;
+    });
+    historyDropdown.innerHTML = html;
+    historyDropdown.style.display = 'block';
+}
+
+// 新增：删除下拉建议 (无确认)
+function deleteTaskSuggestion(name, event) {
+    // 阻止事件冒泡，防止触发 input 的 blur 或其他点击事件
+    if (event) event.stopPropagation();
+
+    const history = getHistory();
+    
+    // 删除该属性
+    delete history[name];
+    
+    // 保存回本地
+    localStorage.setItem('taskHistory', JSON.stringify(history));
+    
+    // 重新渲染下拉菜单 (如果删完空了会自动隐藏)
+    showHistoryDropdown();
+    
+    // 保持输入框焦点，防止删除后菜单消失
+    taskInput.focus(); 
+}
 
         // 选择历史记录
         function selectHistory(name) {
@@ -1186,34 +1461,63 @@ function startTextAnim() {
 
         // ================= 结束控制逻辑 =================
 
-        // 1. 点击按钮触发的确认函数
-        function confirmEnd() {
-            // 弹出原生确认框
-            const isConfirmed = confirm("确定要结束本次学习吗？");
-            
-            if (isConfirmed) {
-                // 如果用户点“确定”，则执行停止逻辑
-                stopTimer();
-            }
-            // 如果点“取消”，什么都不做，计时继续
-        }
+ // 1. 拦截“结束”按钮
+function confirmEnd() {
+    if (confirm("确定结束并保存记录吗？")) {
+        showSummaryModal(); // 以前是直接 stopTimer()，现在改为显示弹窗
+    }
+}
 
-        // 2. 停止并返回主页的核心逻辑
-        function stopTimer() {
-            // 停止运行状态
-            isRunning = false;
-            
-            // 停止所有的计时器和动画帧
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            if (textInterval) clearInterval(textInterval);
-            
-            // 切换回设置页面
-            timerScreen.classList.remove('active'); // 隐藏计时页
-            setupScreen.classList.add('active');    // 显示设置页
-            
-            // 重置暂停按钮的文字，防止下次进来还是显示“继续”
-            if (pauseBtn) pauseBtn.innerText = "暂停";
-        }
+// 2. 拦截自动倒计时结束
+function finishTimer() {
+    // 播放提示音或震动等...
+    alert('专注任务完成！请填写心得。'); // 可选
+    showSummaryModal();
+}
+
+// 3. 显示总结弹窗逻辑
+// 3. 显示总结弹窗逻辑 (已修复时长丢失 Bug)
+function showSummaryModal() {
+    // 【关键修复开始】：如果当前正在运行，必须把“最后这一段”时间加进去
+    if (isRunning) {
+        const now = performance.now();
+        elapsedMs += (now - startTime);
+        isRunning = false; // 结算完毕后，再标记为停止
+    }
+    // 【关键修复结束】
+
+    // 停止动画帧和轮播
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    if (textInterval) clearInterval(textInterval);
+
+    // 计算最终时长字符串
+    const finalMs = elapsedMs; // 此时 elapsedMs 已经是完整的总耗时了
+    const totalSec = Math.floor(finalMs / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const timeStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+
+    // 填充弹窗数据
+    document.getElementById('summary-duration').innerText = timeStr;
+    document.getElementById('summary-note').value = ''; // 清空备注
+    
+    // 显示弹窗
+    document.getElementById('summary-overlay').classList.add('open');
+    document.getElementById('summary-modal').classList.add('active');
+}
+
+function closeSummary(isSave) {
+    // 隐藏弹窗
+    document.getElementById('summary-overlay').classList.remove('open');
+    document.getElementById('summary-modal').classList.remove('active');
+    
+    // 如果用户点击的是“不保存”按钮(isSave为false)，
+    // 我们也要手动调用 stopTimer 让它回主页，否则就卡在黑屏了
+    if (!isSave) {
+        stopTimer(); 
+    }
+}
 
         // ================= 全屏控制逻辑 =================
 
@@ -1256,6 +1560,312 @@ function startTextAnim() {
                 console.log("已退出全屏");
             }
         });
+
+        // ================= 开发者模式逻辑 =================
+
+const devContainer = document.getElementById('dev-timeline-container');
+const devSlider = document.getElementById('dev-slider');
+let isDevMode = false;
+
+// 1. 监听输入框的“暗号”
+taskInput.addEventListener('keydown', (e) => {
+    // 检测是否按下回车
+    if (e.key === 'Enter') {
+        const val = taskInput.value.trim().toLowerCase();
+        
+        if (val === 'water') {
+            e.preventDefault(); // 阻止默认回车行为
+            activateDevMode();  // 激活开发者模式
+        }
+    }
+});
+
+// 2. 激活开发者模式函数
+function activateDevMode() {
+    isDevMode = true;
+    
+    // 强制设置时长为 8 小时 (480分钟)
+    totalDurationMinutes = 480; 
+    
+    // 显示时间轴
+    devContainer.style.display = 'block';
+    
+    // 自动填充一个任务名
+    if(!taskInput.value || taskInput.value === 'water') {
+        taskInput.value = "Developer Testing"; 
+    }
+
+    // 调用原本的开始函数
+    startFocus();
+    
+    // 提示
+    console.log("开发者模式已激活：时间轴已开启");
+}
+
+// 3. 时间轴拖动监听 (修改版：无缝穿梭，不暂停)
+// 开发者模式：滑块监听 (最终优化版)
+devSlider.addEventListener('input', (e) => {
+    if (!isDevMode) return;
+
+    // 1. 【关键】只要手一碰滑块，马上杀掉所有动画，保持文字常亮
+    resetAllTextAnims();
+    // 也要清除之前的防抖计时器
+    if (dragDebounceTimer) clearTimeout(dragDebounceTimer);
+
+    // 2. 更新时间逻辑 (保持之前的无缝穿梭逻辑)
+    const sliderSeconds = parseInt(e.target.value);
+    const sliderMs = sliderSeconds * 1000;
+
+    if (isRunning) {
+        startTime = performance.now();
+        elapsedMs = sliderMs;
+    } else {
+        elapsedMs = sliderMs;
+    }
+    updateTimerUI(sliderMs);
+
+    // 3. 资源切换逻辑
+    const correctCycleIndex = Math.floor(sliderSeconds / 1200);
+    if (correctCycleIndex !== currentResIndex) {
+        currentResIndex = correctCycleIndex;
+        updateResource(currentResIndex, true); 
+        
+        // 强制刷新文字内容
+        const data = resources[currentResIndex % resources.length];
+        timerTaskName.innerText = data.title;
+        alternatingText.innerText = data.quote;
+    }
+
+    // 4. 【关键】防抖重启逻辑
+    // 当用户停止拖动 1000ms (1秒) 后，判断是否需要恢复呼吸
+    dragDebounceTimer = setTimeout(() => {
+        // 如果当前时间已经超过 10秒 (10000ms)，则启动呼吸循环
+        // 如果小于 10秒，我们就保持常亮，不启动呼吸，直到时间自然流逝到10秒
+        if (sliderMs >= 10000 && isRunning) {
+            console.log("滑块停止，且时间>10s，恢复呼吸动画");
+            startBreathingOnly();
+        } else if (isRunning) {
+            // 如果时间 < 10s，我们需要补一个 timer，让它在到达 10s 时启动
+            const remaining = 10000 - sliderMs;
+            console.log(`滑块停止，时间<10s，将在 ${remaining}ms 后启动呼吸`);
+            breatheStartTimeout = setTimeout(() => {
+                if(isRunning) startBreathingOnly();
+            }, remaining);
+        }
+    }, 1000);
+});
+
+    // 在 activateDevMode 函数下面添加这个函数
+
+function exitDevMode() {
+    // 1. 关闭开发者模式标识
+    isDevMode = false;
+    
+    // 2. 隐藏时间轴界面
+    devContainer.style.display = 'none';
+    
+    // 3. 恢复自动计时（如果在拖拽过程中暂停了）
+    // 如果当前是暂停状态，我们保持暂停；
+    // 如果本来就在运行，或者我们想让它自动继续，可以做个判断。
+    // 这里为了体验流畅，如果你关闭了调试条，我们默认帮你恢复“运行”状态（除非你手动点了暂停）
+    if (!isRunning && pauseBtn.innerText === "继续") {
+        // 如果是暂停状态，什么都不做，等待用户点继续
+    } else if (!isRunning) {
+        // 如果是因为拖拽导致的临时暂停，恢复运行
+        togglePause(); 
+    }
+
+    console.log("开发者模式已关闭，回归正常时间流");
+}
+
+// ================= 历史记录与导出逻辑 =================
+
+// 1. 保存并退出 (Save & Exit)
+// 1. 保存并退出 (Save & Exit)
+function saveAndExit() {
+    // 1. 获取输入内容
+    const note = document.getElementById('summary-note').value;
+    
+    // 【关键修改】：
+    // 之前是抓取 #timer-task-name (它会被动画改成“大爆炸”等)
+    // 现在改为抓取 #task-input (用户最初在设置页填写的真实任务)
+    const taskName = document.getElementById('task-input').value.trim() || '专注时刻';
+    
+    // 2. 计算时长
+    const totalSec = Math.floor(elapsedMs / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const durationStr = `${h}小时${m}分${s}秒`;
+
+    // 3. 格式化开始时间
+    let startTimeStr = "未知时间";
+    if (sessionStartTimeObj && sessionStartTimeObj.toLocaleString) {
+        startTimeStr = sessionStartTimeObj.toLocaleString();
+    }
+
+    // 4. 构建数据对象
+    const record = {
+        id: Date.now(),
+        task: taskName, // 现在这里保存的就是正确的任务名了
+        startTime: startTimeStr,
+        duration: durationStr,
+        note: note
+    };
+
+    // 5. 保存到 LocalStorage (immersiveHistory)
+    let historyList = JSON.parse(localStorage.getItem('immersiveHistory')) || [];
+    historyList.unshift(record);
+    localStorage.setItem('immersiveHistory', JSON.stringify(historyList));
+
+    // 6. 更新简易下拉历史 (taskHistory)
+    // 注意：startFocus 时已经记过一次了，这里如果不想重复计数，可以注释掉下面这几行
+    if (typeof saveTaskToHistory === 'function') {
+        saveTaskToHistory(taskName);
+    }
+
+    // 7. 关闭弹窗
+    closeSummary(true);
+
+    // 8. 调用停止函数以返回主页
+    stopTimer(); 
+}
+
+// 2. 打开历史记录列表
+// 修改：打开历史记录列表 (增加了 index 参数用于删除定位)
+function openHistoryModal() {
+    const list = JSON.parse(localStorage.getItem('immersiveHistory')) || [];
+    const container = document.getElementById('history-list-content');
+    
+    if (list.length === 0) {
+        container.innerHTML = '<div class="empty-tip">暂无学习记录</div>';
+    } else {
+        let html = '';
+        // 遍历时加上 index，方便删除
+        list.forEach((item, index) => {
+            html += `
+                <div class="history-row">
+                    <!-- 删除按钮：传入 index -->
+                    <div class="btn-delete-record" onclick="deleteHistoryItem(${index})" title="删除此条">×</div>
+                    
+                    <div class="history-row-top">
+                        <span>${item.task}</span>
+                        <span>${item.duration}</span>
+                    </div>
+                    <div class="history-row-mid">
+                        <span>${item.startTime}</span>
+                    </div>
+                    ${item.note ? `<div class="history-note">📝 ${item.note}</div>` : ''}
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    document.getElementById('history-overlay').classList.add('open');
+    document.getElementById('history-modal').classList.add('active');
+}
+
+// 新增：删除单条历史记录 (无确认)
+function deleteHistoryItem(index) {
+    let list = JSON.parse(localStorage.getItem('immersiveHistory')) || [];
+    
+    // 删除对应索引的元素
+    list.splice(index, 1);
+    
+    // 保存回本地
+    localStorage.setItem('immersiveHistory', JSON.stringify(list));
+    
+    // 立即重新渲染列表
+    openHistoryModal();
+}
+
+function closeHistoryModal() {
+    document.getElementById('history-overlay').classList.remove('open');
+    document.getElementById('history-modal').classList.remove('active');
+}
+
+// 3. 导出为 Excel (CSV 格式)
+function exportToExcel() {
+    const list = JSON.parse(localStorage.getItem('immersiveHistory')) || [];
+    if (list.length === 0) return alert('暂无数据可导出');
+
+    // CSV 表头
+    let csvContent = "任务名称,开始时间,专注时长,心得备注\n";
+
+    list.forEach(item => {
+        // 处理备注中的换行符和逗号，防止 CSV 格式错乱
+        let safeNote = item.note ? item.note.replace(/,/g, '，').replace(/\n/g, ' ') : '';
+        csvContent += `${item.task},${item.startTime},${item.duration},"${safeNote}"\n`;
+    });
+
+    // 创建 Blob 对象 (加上 \uFEFF 是为了让 Excel 正确识别中文 UTF-8)
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // 创建下载链接
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    // 生成文件名：专注记录_20231027.csv
+    const date = new Date();
+    const dateStr = `${date.getFullYear()}${date.getMonth()+1}${date.getDate()}`;
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `专注记录_${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// A. 强力清除所有文字动画 (让文字保持静止可见)
+function resetAllTextAnims() {
+    // 1. 清除所有定时器
+    if (textInterval) clearInterval(textInterval);
+    if (animTimeout1) clearTimeout(animTimeout1);
+    if (animTimeout2) clearTimeout(animTimeout2);
+    if (animTimeout3) clearTimeout(animTimeout3);
+    if (breatheStartTimeout) clearTimeout(breatheStartTimeout);
+
+    // 2. 强制显示文字
+    const timerContent = document.querySelector('.timer-content');
+    if (timerContent) {
+        timerContent.style.opacity = '1';
+        timerContent.classList.remove('rotate-out');
+        // 移除翻转时的 transition，防止拖动时还有残留的旋转动效
+        timerContent.style.transition = ''; 
+    }
+    
+    // 3. 移除 hidden 类，确保可见
+    timerTaskName.classList.remove('hidden');
+    alternatingText.classList.remove('hidden');
+}
+
+// B. 单独启动呼吸循环 (不含翻转)
+function startBreathingOnly() {
+    // 先清除可能存在的循环
+    if (textInterval) clearInterval(textInterval);
+
+    const runLoop = () => {
+        if (!isRunning) return;
+        // 隐
+        timerTaskName.classList.add('hidden');
+        alternatingText.classList.add('hidden');
+        
+        // 10秒后显
+        animTimeout3 = setTimeout(() => {
+            if(isRunning) {
+                timerTaskName.classList.remove('hidden');
+                alternatingText.classList.remove('hidden');
+            }
+        }, 10000);
+    };
+
+    // 立即执行一次
+    runLoop();
+    // 之后每 20秒循环
+    textInterval = setInterval(runLoop, 20000);
+}
     </script>
 </body>
 </html>
