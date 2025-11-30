@@ -1109,40 +1109,45 @@ let dragDebounceTimer = null;   // 用于判断滑块何时停止
 
 // 1. 开始专注
 function startFocus() {
-            // 保存历史记录
-            if(typeof saveTaskToHistory === 'function') saveTaskToHistory(taskNameInput.value);
+    // 保存历史记录
+    if(typeof saveTaskToHistory === 'function') saveTaskToHistory(taskNameInput.value);
 
-            if (totalDurationMinutes <= 0) return alert('请先设置时长');
-            
-            // 切换界面
-            setupScreen.classList.remove('active');
-            timerScreen.classList.add('active');
-            
-            // 获取容器
-            const timerContent = document.querySelector('.timer-content');
-            
-            // 进入初始模式
-            timerContent.classList.add('initial-mode');
-            
-            // 确保没有残留的样式，清空 transform
-            timerContent.style.transform = ''; 
-            timerContent.classList.remove('rotate-out');
+    if (totalDurationMinutes <= 0) return alert('请先设置时长');
+    
+    // 切换界面
+    setupScreen.classList.remove('active');
+    timerScreen.classList.add('active');
+    
+    // 获取容器
+    const timerContent = document.querySelector('.timer-content');
+    
+    // 进入初始模式 (大任务名，小时间)
+    timerContent.classList.add('initial-mode');
+    
+    // 确保没有残留的样式
+    timerContent.style.transform = ''; 
+    timerContent.classList.remove('rotate-out');
 
-            // 初始化文字
-            const userTask = taskNameInput.value || '专注时刻';
-            timerTaskName.innerText = userTask; 
-            
-            // 底部名言先隐藏
-            alternatingText.classList.add('hidden'); 
-            
-            // 重置状态
-            elapsedMs = 0; 
-            lastCycleIndex = 0;
-            updateResource(0, true); 
-            
-            // 立即开始
-            startTimerLogic();
-        }
+    // 初始化文字
+    const userTask = taskNameInput.value || '专注时刻';
+    timerTaskName.innerText = userTask; 
+    
+    // 底部名言先隐藏
+    alternatingText.classList.add('hidden'); 
+    
+    // 重置状态
+    elapsedMs = 0; 
+    lastCycleIndex = 0;
+
+    // --- 【新增：彻底修复“进度不重置”的问题】 ---
+    currentResIndex = 0; 
+    // ----------------------------------------
+
+    updateResource(0, true); 
+    
+    // 立即开始
+    startTimerLogic();
+}
 // 在 startFocus 函数内部，startTimerLogic() 之前添加：
 sessionStartTimeObj = new Date(); // 记录当前真实时间
         // 2. 核心计时逻辑 (改为 requestAnimationFrame)
@@ -1266,18 +1271,22 @@ function stopTimer() {
     // 1. 停止运行标志
     isRunning = false;
     
-    // 2. 清除各种定时器
+    // 2. 清除核心循环
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     if (textInterval) clearInterval(textInterval);
     
-    // 3. 【关键】切换页面 UI：隐藏计时页，显示设置页
+    // --- 【新增：必须手动杀死所有文字动画定时器】 ---
+    resetAllTextAnims(); 
+    // -------------------------------------------
+    
+    // 3. 切换页面 UI
     timerScreen.classList.remove('active'); 
     setupScreen.classList.add('active');    
     
     // 4. 重置按钮文字
     if (pauseBtn) pauseBtn.innerText = "暂停";
 
-    // 5. 如果开启了开发者模式，顺便关闭它
+    // 5. 关闭开发者模式
     if (typeof isDevMode !== 'undefined' && isDevMode) {
         exitDevMode();
     }
@@ -1584,21 +1593,25 @@ taskInput.addEventListener('keydown', (e) => {
 function activateDevMode() {
     isDevMode = true;
     
-    // 强制设置时长为 8 小时 (480分钟)
     totalDurationMinutes = 480; 
-    
-    // 显示时间轴
     devContainer.style.display = 'block';
     
-    // 自动填充一个任务名
     if(!taskInput.value || taskInput.value === 'water') {
         taskInput.value = "Developer Testing"; 
     }
 
-    // 调用原本的开始函数
+    // 正常启动
     startFocus();
     
-    // 提示
+    // --- 【新增逻辑】 ---
+    // 因为是开发者模式，不需要看开场动画，所以我们手动清理动画并移除大字模式
+    resetAllTextAnims(); 
+    const timerContent = document.querySelector('.timer-content');
+    if(timerContent) {
+        timerContent.classList.remove('initial-mode'); // 手动移除，立刻显示时间
+    }
+    // ------------------
+
     console.log("开发者模式已激活：时间轴已开启");
 }
 
@@ -1831,8 +1844,11 @@ function resetAllTextAnims() {
     const timerContent = document.querySelector('.timer-content');
     if (timerContent) {
         timerContent.style.opacity = '1';
+        
+        // 【关键改动】：这里千万不要移除 initial-mode！
+        // 否则正常模式下的“开场大字动画”会被瞬间破坏。
+        
         timerContent.classList.remove('rotate-out');
-        // 移除翻转时的 transition，防止拖动时还有残留的旋转动效
         timerContent.style.transition = ''; 
     }
     
