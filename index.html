@@ -5,8 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>timing计时器</title>
     <style>
-        /* --- 全局样式 & 重置 --- */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* --- 全局样式 & 重置 --- */
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            
+            /* === 新增代码开始：禁止页面变蓝 === */
+            user-select: none;          /* 标准语法：禁止选中 */
+            -webkit-user-select: none;  /* Safari/Chrome 兼容 */
+            /* === 新增代码结束 === */
+        }
+
+        /* === 关键修正：输入框必须能选中，否则无法打字！ === */
+        input, textarea {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            /* 保持输入框的光标正常显示 */
+            cursor: text; 
+        }
         body, html {
             margin: 0; padding: 0;
             width: 100%; height: 100%;
@@ -266,32 +282,36 @@
             background: #000; /* 默认黑底，防止图片加载前的白屏 */
         }
 
-        /* 找到 .bg-layer，替换为以下代码 */
+/* 找到 .bg-layer，替换为以下代码 */
         .bg-layer {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             
-            /* 关键点1：图片放大到 120%，这样左右才有空间移动 */
-            background-size: 120% 120%; 
+            /* === 核心修改：手机端完美方案 === */
+            /* 1. 高度 100%：保证图片上下填满屏幕 */
+            /* 2. 宽度 auto：让宽度按原图比例自动延伸（会变得很宽，超出屏幕） */
+            background-size: auto 100%; 
+            
             background-position: center;
+            background-repeat: no-repeat;
+            
             z-index: 0;
             opacity: 0.8;
             transition: background-image 1s ease-in-out;
             
-            /* 关键点2：时长设为 20s，配合 alternate (往返) 
-               去程 20s + 回程 20s = 40s 一个循环 */
-            animation: moveBg 20s linear infinite alternate;
+            /* 恢复左右移动动画，时间设为 30秒 比较优雅 */
+            animation: moveBg 30s linear infinite alternate;
         }
 
-        /* 找到 @keyframes moveBg，替换为以下代码 */
+        /* 确保你的代码里有这个动画（如果你之前删了，请加回来） */
         @keyframes moveBg {
             0% { 
-                /* 最左侧：图片的左边缘对齐屏幕左边缘 */
+                /* 从图片的最左边开始 */
                 background-position: 0% 50%; 
             }
             100% { 
-                /* 最右侧：图片的右边缘对齐屏幕右边缘 */
+                /* 移动到图片的最右边 */
                 background-position: 100% 50%; 
             }
         }
@@ -944,8 +964,19 @@
         <!-- JS 动态填充 -->
     </div>
 
-    <div class="modal-btns">
-        <button class="btn-confirm-flat full-width" onclick="exportToExcel()">导出为 Excel</button>
+    <div class="modal-btns" style="flex-wrap: wrap; gap: 10px;">
+        <button class="btn-confirm-flat full-width" onclick="exportToExcel()">导出为 Excel (表格)</button>
+        
+        <div style="display: flex; gap: 10px; width: 100%;">
+            <button class="btn-cancel-flat" style="flex: 1;" onclick="exportBackup()">
+                📤 导出备份
+            </button>
+            <button class="btn-confirm-flat" style="flex: 1; background: #4CAF50;" onclick="triggerImport()">
+                📥 导入备份
+            </button>
+        </div>
+        
+        <input type="file" id="backup-file-input" accept=".json" style="display: none;" onchange="importBackup(this)">
     </div>
 </div>
     <script>
@@ -1956,6 +1987,121 @@ function startBreathingOnly() {
     runLoop();
     // 之后每 20秒循环
     textInterval = setInterval(runLoop, 20000);
+}
+
+// ================= 三连击/三连点全屏逻辑 (PC & 手机通用) =================
+        let tapCount = 0;
+        let tapTimer = null;
+
+        // 将 touchstart 改为 click，这样电脑鼠标和手机触摸都能触发
+        document.addEventListener('click', (e) => {
+            // 1. 防冲突：使用 closest 检测，
+            // 只要点击的是按钮、输入框、链接或滚轮区域内部，都不算数
+            if (e.target.closest('button, input, textarea, a, .picker-column')) {
+                tapCount = 0;
+                return;
+            }
+
+            // 2. 计数增加
+            tapCount++;
+
+            // 3. 判断逻辑
+            if (tapCount === 3) {
+                // --- 触发全屏 ---
+                enterFullScreen();
+                
+                // 重置
+                tapCount = 0;
+                if (tapTimer) clearTimeout(tapTimer);
+                
+                // 可选：加个 console.log 方便调试
+                console.log("三连击触发全屏");
+            } else {
+                // --- 还没到3次，设置超时重置 ---
+                if (tapTimer) clearTimeout(tapTimer);
+                
+                // 400毫秒内必须点下一次，否则重置
+                // 如果觉得手速跟不上，可以把 400 改成 500
+                tapTimer = setTimeout(() => {
+                    tapCount = 0;
+                }, 400); 
+            }
+        });
+
+        // ================= 数据备份与恢复 (同步功能) =================
+
+// 1. 导出备份 (JSON 格式，包含所有数据)
+function exportBackup() {
+    const history = localStorage.getItem('immersiveHistory') || '[]';
+    const taskStats = localStorage.getItem('taskHistory') || '{}';
+    
+    // 把两份数据打包在一起
+    const backupData = {
+        version: "1.0",
+        date: new Date().toLocaleString(),
+        history: JSON.parse(history),
+        stats: JSON.parse(taskStats)
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    // 文件名带上时间，方便区分
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, "");
+    link.download = `Timing_备份_${dateStr}.json`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert("备份文件已下载！\n请把这个 .json 文件发到另一台设备上进行导入。");
+}
+
+// 2. 触发导入 (点击按钮模拟点击文件框)
+function triggerImport() {
+    document.getElementById('backup-file-input').click();
+}
+
+// 3. 执行导入
+function importBackup(inputElement) {
+    const file = inputElement.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // 简单的格式校验
+            if (!data.history || !data.stats) {
+                alert("文件格式错误：这不是 Timing 的备份文件。");
+                return;
+            }
+
+            if (confirm(`检测到备份文件：\n备份时间：${data.date}\n包含 ${data.history.length} 条记录\n\n【注意】导入将覆盖当前设备的所有记录！\n确定要覆盖吗？`)) {
+                
+                // 覆盖本地数据
+                localStorage.setItem('immersiveHistory', JSON.stringify(data.history));
+                localStorage.setItem('taskHistory', JSON.stringify(data.stats));
+                
+                alert("✅ 数据恢复成功！");
+                
+                // 刷新界面
+                location.reload();
+            }
+        } catch (err) {
+            console.error(err);
+            alert("导入失败：文件损坏或格式不正确。");
+        }
+    };
+    
+    // 读取文件文字
+    reader.readAsText(file);
+    
+    // 清空 input，防止同名文件无法再次触发
+    inputElement.value = ''; 
 }
     </script>
 </body>
