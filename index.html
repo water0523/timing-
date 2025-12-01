@@ -282,36 +282,32 @@
             background: #000; /* 默认黑底，防止图片加载前的白屏 */
         }
 
-/* 找到 .bg-layer，替换为以下代码 */
+        /* 找到 .bg-layer，替换为以下代码 */
         .bg-layer {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             
-            /* === 核心修改：手机端完美方案 === */
-            /* 1. 高度 100%：保证图片上下填满屏幕 */
-            /* 2. 宽度 auto：让宽度按原图比例自动延伸（会变得很宽，超出屏幕） */
-            background-size: auto 100%; 
-            
+            /* 关键点1：图片放大到 120%，这样左右才有空间移动 */
+            background-size: 120% 120%; 
             background-position: center;
-            background-repeat: no-repeat;
-            
             z-index: 0;
             opacity: 0.8;
             transition: background-image 1s ease-in-out;
             
-            /* 恢复左右移动动画，时间设为 30秒 比较优雅 */
-            animation: moveBg 30s linear infinite alternate;
+            /* 关键点2：时长设为 20s，配合 alternate (往返) 
+               去程 20s + 回程 20s = 40s 一个循环 */
+            animation: moveBg 20s linear infinite alternate;
         }
 
-        /* 确保你的代码里有这个动画（如果你之前删了，请加回来） */
+        /* 找到 @keyframes moveBg，替换为以下代码 */
         @keyframes moveBg {
             0% { 
-                /* 从图片的最左边开始 */
+                /* 最左侧：图片的左边缘对齐屏幕左边缘 */
                 background-position: 0% 50%; 
             }
             100% { 
-                /* 移动到图片的最右边 */
+                /* 最右侧：图片的右边缘对齐屏幕右边缘 */
                 background-position: 100% 50%; 
             }
         }
