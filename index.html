@@ -2099,6 +2099,30 @@ function importBackup(inputElement) {
     // 清空 input，防止同名文件无法再次触发
     inputElement.value = ''; 
 }
+
+// ================= 性能优化：图片预加载 =================
+
+function preloadAllImages() {
+    console.log("开始预加载所有背景图片...");
+    
+    // 遍历资源列表
+    resources.forEach((item) => {
+        // 创建一个虚拟的 Image 对象
+        const img = new Image();
+        
+        // 设置 src，浏览器就会立即开始在后台下载并缓存这张图
+        img.src = item.img;
+        
+        // (可选) 监听加载完成，方便调试
+        img.onload = () => {
+            // console.log(`已缓存: ${item.title}`);
+        };
+    });
+}
+
+// === 关键：在页面加载完成后立即执行 ===
+// 这样当用户在选时间的时候，后台就已经把 24 张图全下好了
+preloadAllImages();
     </script>
 </body>
 </html>
