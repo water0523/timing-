@@ -1402,11 +1402,21 @@ function stopTimer() {
         // ================= 3. 背景与文字切换 =================
 
 // 替换 updateResource 函数
-        function updateResource(idx, isFirstLoad = false) {
-            const data = resources[idx % resources.length];
-            
-            // 1. 切换背景
-            bgLayer.style.backgroundImage = `url('${data.img}')`;
+function updateResource(idx, isFirstLoad = false) {
+    // 确保索引在范围内
+    const safeIndex = idx % resources.length;
+    const data = resources[safeIndex];
+    
+    // === 修改点：优先使用内存里的 Blob 地址 ===
+    // 如果内存里有(loadedImages)，就用内存的；还没有就用原始的(data.img)
+    const finalImgUrl = loadedImages[safeIndex] || data.img;
+    
+    const tempImg = new Image();
+    tempImg.src = finalImgUrl;
+    
+    tempImg.onload = () => {
+        bgLayer.style.backgroundImage = `url('${finalImgUrl}')`;
+    };
             
             // 2. 如果不是第一次加载（中间自动切图），按正常逻辑淡入淡出
             if (!isFirstLoad) {
@@ -2102,26 +2112,43 @@ function importBackup(inputElement) {
 
 // ================= 性能优化：图片预加载 =================
 
-function preloadAllImages() {
-    console.log("开始预加载所有背景图片...");
+// ================= 强力预加载：转为 Blob 内存数据 =================
+
+// 用于存储转换后的本地图片地址
+const loadedImages = {}; 
+
+async function preloadAllImages() {
+    console.log("正在强力下载所有图片到内存...");
     
-    // 遍历资源列表
-    resources.forEach((item) => {
-        // 创建一个虚拟的 Image 对象
-        const img = new Image();
-        
-        // 设置 src，浏览器就会立即开始在后台下载并缓存这张图
-        img.src = item.img;
-        
-        // (可选) 监听加载完成，方便调试
-        img.onload = () => {
-            // console.log(`已缓存: ${item.title}`);
-        };
+    // 我们使用 Promise.all 并发下载所有图片
+    const promises = resources.map(async (item, index) => {
+        try {
+            // 1. 发起请求获取图片文件
+            const response = await fetch(item.img);
+            // 2. 转为 Blob (二进制大对象)
+            const blob = await response.blob();
+            // 3. 生成一个本地内存链接 (例如: blob:http://localhost/...)
+            const objectURL = URL.createObjectURL(blob);
+            
+            // 4. 存入字典，key 是索引，value 是内存地址
+            loadedImages[index] = objectURL;
+            
+            // (可选) 可以在这里更新进度条，比如 "已加载 1/24"
+            // console.log(`图片 ${index} 已锁定在内存`);
+            
+        } catch (err) {
+            console.error(`图片 ${item.title} 加载失败`, err);
+            // 失败保底：如果有网络问题，还是用原链接
+            loadedImages[index] = item.img;
+        }
     });
+
+    // 等待所有图片都处理完
+    await Promise.all(promises);
+    console.log("所有图片已驻留内存，后台切换无压力！");
 }
 
-// === 关键：在页面加载完成后立即执行 ===
-// 这样当用户在选时间的时候，后台就已经把 24 张图全下好了
+// 页面加载时立即执行
 preloadAllImages();
     </script>
 </body>
